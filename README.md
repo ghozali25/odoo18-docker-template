@@ -98,6 +98,38 @@ docker compose yang panjang. Tempel isinya ke `~/.zshrc` atau `~/.bashrc`,
 sesuaikan path compose pada baris `export ODOO19_COMPOSE=...`, lalu muat
 ulang shell-nya (`source ~/.zshrc`).
 
+## Real-time (Discuss/chat/notifikasi)
+
+Notifikasi dan chat Odoo 18 jalan lewat longpolling/WebSocket, dan itu
+hanya hidup bila `workers` di `config/odoo.conf` minimal 1 (default
+template ini: `workers = 2`, `longpolling_port = 8072`). Dengan
+`workers = 0`, browser menampilkan "Real-time connection lost" dan
+tanda sudah-dibaca tidak pernah sampai ke layar.
+
+Di belakang nginx, teruskan kedua jalur ini ke port longpolling
+(`8073` di `docker-compose.yml` template ini):
+
+```nginx
+location /longpolling {
+    proxy_pass http://127.0.0.1:8073;
+}
+
+location /websocket {
+    proxy_pass http://127.0.0.1:8073;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 720s;
+}
+```
+
+Perhatian bila satu server menjalankan dua Odoo: port HTTP template ini
+(`8072:8069`) bertabrakan dengan port longpolling Odoo lain yang memakai
+`8072` di host yang sama — pindahkan pemetaan HTTP-nya (mis. `8071:8069`).
+
 ## Catatan
 
 - Jangan commit file `.env` asli; repo hanya menyimpan `.env.example`.
